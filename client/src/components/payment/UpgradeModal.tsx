@@ -19,7 +19,7 @@ export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
-  const { initPayment } = useRazorpay();
+  const { createOrder, initPayment, isLoaded } = useRazorpay();
   
   const plans = {
     monthly: {
@@ -59,35 +59,51 @@ export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
       return;
     }
     
+    if (!isLoaded) {
+      toast({
+        title: "Error",
+        description: "Payment system is loading. Please try again in a moment.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsProcessing(true);
     
     try {
+      // Step 1: Create a Razorpay order
+      const orderData = await createOrder({
+        plan: selectedPlan,
+        userId: user.id
+      });
+      
+      // Step 2: Initialize payment with the order ID
       const plan = plans[selectedPlan];
       
-      // Initialize Razorpay payment
-      const paymentData = {
-        amount: plan.price * 100, // Convert to smallest currency unit (cents)
-        currency: "USD",
+      const paymentResponse = await initPayment({
+        amount: orderData.amount, // Amount from the server
+        currency: orderData.currency,
         name: "DashMetrics",
         description: `DashMetrics ${plan.name} Plan`,
-        order_id: `order_${Date.now()}`, // In a real app, this would come from your backend
+        order_id: orderData.id, // Use the order ID from the server
         prefill: {
-          name: user.username,
-          email: user.email
+          name: user.username || '',
+          email: user.email || ''
         },
         theme: {
           color: "#3B82F6"
         }
-      };
+      });
       
-      const paymentId = await initPayment(paymentData);
-      
-      if (paymentId) {
+      // Step 3: Process successful payment
+      if (paymentResponse.razorpay_payment_id) {
         // Create subscription in database
         const response = await apiRequest("POST", "/api/subscription", {
           userId: user.id,
           plan: selectedPlan,
-          paymentId
+          paymentId: paymentResponse.razorpay_payment_id,
+          orderId: paymentResponse.razorpay_order_id,
+          signature: paymentResponse.razorpay_signature
         });
         
         if (response.ok) {
@@ -105,10 +121,12 @@ export default function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
           
           onClose();
         } else {
-          throw new Error("Failed to create subscription");
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to create subscription");
         }
       }
     } catch (error) {
+      console.error('Payment processing error:', error);
       toast({
         title: "Payment Failed",
         description: error instanceof Error ? error.message : "Failed to process payment",

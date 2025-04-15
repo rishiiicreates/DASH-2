@@ -34,11 +34,14 @@ class RazorpayService {
   private baseUrl = 'https://api.razorpay.com/v1';
 
   constructor() {
+    // Access environment variables directly since they're provided by Replit
     this.key_id = process.env.RAZORPAY_KEY_ID || '';
     this.key_secret = process.env.RAZORPAY_KEY_SECRET || '';
     
     if (!this.key_id || !this.key_secret) {
       console.error('Missing Razorpay API keys');
+    } else {
+      console.log('Razorpay service initialized successfully');
     }
   }
 

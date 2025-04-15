@@ -6,6 +6,7 @@ import MetricsSummary from "@/components/dashboard/MetricsSummary";
 import PostPerformance from "@/components/dashboard/PostPerformance";
 import PlatformCard from "@/components/dashboard/PlatformCard";
 import ApiKeysForm from "@/components/onboarding/ApiKeysForm";
+import UpgradeModal from "@/components/payment/UpgradeModal";
 import DateRangeSelector from "@/components/dashboard/DateRangeSelector";
 import { DateRangeOption } from "@/lib/dateUtils";
 
@@ -18,6 +19,7 @@ export default function Dashboard({ dateRange, setDateRange }: DashboardProps) {
   const { user } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
   // Fetch platform stats
   const { 
@@ -42,6 +44,10 @@ export default function Dashboard({ dateRange, setDateRange }: DashboardProps) {
     await refetch();
     setIsRefreshing(false);
   };
+  
+  const handleUpgradeClick = () => {
+    setShowUpgradeModal(true);
+  };
 
   return (
     <>
@@ -52,7 +58,10 @@ export default function Dashboard({ dateRange, setDateRange }: DashboardProps) {
             <i className="ri-information-line text-yellow-500 mr-2"></i>
             <p className="text-sm text-yellow-700">You're on the free plan. Analytics limited to the last 7 days.</p>
           </div>
-          <button className="text-sm font-medium text-primary hover:text-primary-dark">
+          <button 
+            className="text-sm font-medium text-primary hover:text-primary-dark"
+            onClick={handleUpgradeClick}
+          >
             Upgrade
           </button>
         </div>
@@ -130,7 +139,7 @@ export default function Dashboard({ dateRange, setDateRange }: DashboardProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {platformStats?.map((stats) => (
+          {Array.isArray(platformStats) && platformStats.map((stats) => (
             <PlatformCard key={stats.platform} stats={stats} />
           ))}
         </div>
@@ -143,6 +152,12 @@ export default function Dashboard({ dateRange, setDateRange }: DashboardProps) {
       <ApiKeysForm
         isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
+      />
+      
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
       />
     </>
   );

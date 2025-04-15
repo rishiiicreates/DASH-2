@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getRazorpayKeyId } from "@/lib/environment";
 
 interface RazorpayOptions {
-  key: string;
+  key?: string; // Made optional since we add it in the initPayment function
   amount: number;
   currency: string;
   name: string;
@@ -108,7 +109,7 @@ export function useRazorpay(): UseRazorpayReturn {
       }
       
       try {
-        const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+        const razorpayKey = getRazorpayKeyId();
         
         if (!razorpayKey) {
           throw new Error('Razorpay key is missing');
