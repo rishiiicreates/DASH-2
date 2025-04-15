@@ -1,5 +1,5 @@
 import { Route, Switch } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/not-found";
@@ -11,10 +11,12 @@ import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/layout/Layout";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
+import { DateRangeOption } from "@/lib/dateUtils";
 
 function App() {
   const { isInitializing, isAuthenticated, user } = useAuth();
   const [location, setLocation] = useLocation();
+  const [dateRange, setDateRange] = useState<DateRangeOption>("7d");
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -44,31 +46,31 @@ function App() {
       {/* Protected routes */}
       {isAuthenticated && (
         <Route path="/">
-          <Layout>
-            <Dashboard />
+          <Layout dateRange={dateRange} setDateRange={setDateRange}>
+            <Dashboard dateRange={dateRange} setDateRange={setDateRange} />
           </Layout>
         </Route>
       )}
       
       {isAuthenticated && (
         <Route path="/posts">
-          <Layout>
-            <PostsPage />
+          <Layout dateRange={dateRange} setDateRange={setDateRange}>
+            <PostsPage dateRange={dateRange} setDateRange={setDateRange} />
           </Layout>
         </Route>
       )}
       
       {isAuthenticated && (
         <Route path="/analytics">
-          <Layout>
-            <Analytics />
+          <Layout dateRange={dateRange} setDateRange={setDateRange}>
+            <Analytics dateRange={dateRange} setDateRange={setDateRange} />
           </Layout>
         </Route>
       )}
       
       {isAuthenticated && (
         <Route path="/connections">
-          <Layout>
+          <Layout dateRange={dateRange} setDateRange={setDateRange}>
             <Connections />
           </Layout>
         </Route>
@@ -76,7 +78,7 @@ function App() {
       
       {isAuthenticated && (
         <Route path="/settings">
-          <Layout>
+          <Layout dateRange={dateRange} setDateRange={setDateRange}>
             <Settings />
           </Layout>
         </Route>

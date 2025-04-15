@@ -5,23 +5,16 @@ import { DateRangeOption } from "@/lib/dateUtils";
 
 interface LayoutProps {
   children: React.ReactNode;
+  dateRange: DateRangeOption;
+  setDateRange: (range: DateRangeOption) => void;
 }
 
-export default function Layout({ children }: LayoutProps) {
+export default function Layout({ children, dateRange, setDateRange }: LayoutProps) {
   const [sidebarVisible, setSidebarVisible] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRangeOption>("7d");
 
   const toggleSidebar = () => {
     setSidebarVisible(!sidebarVisible);
   };
-
-  // Pass date range to children with React.cloneElement
-  const childrenWithProps = React.Children.map(children, (child) => {
-    if (React.isValidElement(child)) {
-      return React.cloneElement(child, { dateRange, setDateRange } as any);
-    }
-    return child;
-  });
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -35,7 +28,7 @@ export default function Layout({ children }: LayoutProps) {
         <Sidebar isVisible={sidebarVisible} />
         
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-gray-50">
-          {childrenWithProps}
+          {children}
         </main>
       </div>
     </div>
