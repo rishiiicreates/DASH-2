@@ -1,8 +1,9 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertApiKeySchema, insertUserSchema } from "@shared/schema";
+import { insertApiKeySchema, insertSubscriptionSchema, insertUserSchema } from "@shared/schema";
+import { razorpayService } from "./services/razorpay";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get user profile
@@ -208,13 +209,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Create subscription (Razorpay integration)
+  // Create Razorpay order
+  app.post('/api/orders', async (req: Request, res: Response) => {
+    try {
+      const { plan } = req.body;
+      
+      if (!plan) {
+        return res.status(400).json({ message: 'Plan is required' });
+      }
+      
+      // Determine amount based on plan
+      let amount;
+      if (plan === 'monthly') {
+        amount = 9.99; // $9.99 for monthly
+      } else if (plan === 'annual') {
+        amount = 89.99; // $89.99 for annual
+      } else {
+        return res.status(400).json({ message: 'Invalid plan type' });
+      }
+      
+      // Create an order in Razorpay
+      const order = await razorpayService.createOrder({
+        amount: razorpayService.calculateAmount(amount),
+        currency: 'USD',
+        receipt: `order_rcpt_${Date.now()}`,
+        notes: {
+          plan: plan
+        }
+      });
+      
+      res.json({
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency
+      });
+    } catch (error) {
+      console.error('Order creation error:', error);
+      res.status(500).json({ 
+        message: 'Failed to create order',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Verify payment and create subscription
   app.post('/api/subscription', async (req: Request, res: Response) => {
     try {
-      const { userId, plan, paymentId } = req.body;
+      const { userId, plan, paymentId, orderId, signature } = req.body;
       
-      if (!userId || !plan || !paymentId) {
+      if (!userId || !plan || !paymentId || !orderId) {
         return res.status(400).json({ message: 'Missing required fields' });
+      }
+      
+      // Verify payment signature if provided
+      if (signature) {
+        const isValid = razorpayService.verifyPaymentSignature({
+          order_id: orderId,
+          payment_id: paymentId,
+          signature
+        });
+        
+        if (!isValid) {
+          return res.status(400).json({ message: 'Invalid payment signature' });
+        }
       }
       
       // Calculate subscription dates based on plan
@@ -244,7 +301,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(subscription);
     } catch (error) {
-      res.status(500).json({ message: 'Failed to create subscription' });
+      console.error('Subscription creation error:', error);
+      res.status(500).json({ 
+        message: 'Failed to create subscription',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

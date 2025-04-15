@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface RazorpayOptions {
@@ -16,12 +17,31 @@ interface RazorpayOptions {
   theme?: {
     color?: string;
   };
+  handler?: (response: RazorpayResponse) => void;
+}
+
+interface RazorpayResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature?: string;
+}
+
+interface CreateOrderParams {
+  plan: 'monthly' | 'annual';
+  userId: number;
+}
+
+interface CreateOrderResponse {
+  id: string;
+  amount: number;
+  currency: string;
 }
 
 interface UseRazorpayReturn {
   isLoaded: boolean;
   isError: boolean;
-  initPayment: (options: RazorpayOptions) => Promise<string>;
+  createOrder: (params: CreateOrderParams) => Promise<CreateOrderResponse>;
+  initPayment: (options: RazorpayOptions) => Promise<RazorpayResponse>;
 }
 
 export function useRazorpay(): UseRazorpayReturn {
@@ -61,8 +81,26 @@ export function useRazorpay(): UseRazorpayReturn {
       }
     };
   }, [toast]);
+
+  // Create a Razorpay order on the server
+  const createOrder = async (params: CreateOrderParams): Promise<CreateOrderResponse> => {
+    try {
+      const response = await apiRequest('POST', '/api/orders', params);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create order');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to create order:', error);
+      throw error;
+    }
+  };
   
-  const initPayment = async (options: RazorpayOptions): Promise<string> => {
+  // Initialize Razorpay payment
+  const initPayment = async (options: RazorpayOptions): Promise<RazorpayResponse> => {
     return new Promise((resolve, reject) => {
       if (!isLoaded) {
         reject(new Error("Razorpay not loaded yet"));
@@ -70,12 +108,21 @@ export function useRazorpay(): UseRazorpayReturn {
       }
       
       try {
-        const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_key';
+        const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+        
+        if (!razorpayKey) {
+          throw new Error('Razorpay key is missing');
+        }
+        
         const razorpay = new (window as any).Razorpay({
           ...options,
           key: razorpayKey,
-          handler: function(response: any) {
-            resolve(response.razorpay_payment_id);
+          handler: function(response: RazorpayResponse) {
+            // Call the handler if provided
+            if (options.handler) {
+              options.handler(response);
+            }
+            resolve(response);
           },
         });
         
@@ -93,6 +140,7 @@ export function useRazorpay(): UseRazorpayReturn {
   return {
     isLoaded,
     isError,
+    createOrder,
     initPayment
   };
 }
